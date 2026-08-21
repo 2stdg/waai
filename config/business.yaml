@@ -1,0 +1,26 @@
+# Configuracion del negocio - edita estos valores para tu proyecto.
+# No pongas aqui tokens, contrasenas ni el numero de escalado interno -
+# esos van en .env (ver .env.example), nunca en este archivo versionado.
+
+nombre_bot: "MiBot"
+negocio: "Mi Negocio"
+tono: "profesional y cercano, en espanol, breve y natural"
+
+# Que hace el negocio / de que se trata el bot - una o dos frases.
+descripcion: "Asistente de WhatsApp para responder preguntas frecuentes, dar precio, y mandar el enlace de accion principal (reserva, compra, cita, etc.)."
+
+# Precio o precios principales que el bot puede mencionar. Si no aplica, deja vacio.
+precio: "$0.00 MXN"
+
+# Enlace principal que el bot manda cuando detecta intencion de compra/accion
+# (agendar, reservar, comprar, etc.)
+link_accion: "https://ejemplo.com/"
+
+# Frases que, si aparecen en el mensaje del usuario, disparan el envio inmediato
+# del link_accion sin dar mas vueltas.
+frases_intencion_accion:
+  - "como me inscribo"
+  - "donde pago"
+  - "quiero apartar mi lugar"
+  - "como reservo"
+  - "me interesa"
