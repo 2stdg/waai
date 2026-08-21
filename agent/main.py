@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()  # antes de importar memory: lee os.environ al importarse
 
 import memory
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import PlainTextResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +31,25 @@ ESCALATED_REPLY = os.environ.get(
     "ESCALATED_REPLY",
     "Ya avisamos a alguien del equipo, en breve te contactan por aqui mismo.",
 )
+
+CANNED_REPLIES_PATH = os.environ.get(
+    "CANNED_REPLIES_PATH", str(ROOT_DIR / "canned_replies.json")
+)
+try:
+    with open(CANNED_REPLIES_PATH, encoding="utf-8") as f:
+        CANNED_REPLIES = json.load(f)
+except FileNotFoundError:
+    CANNED_REPLIES = {}
+
+
+def _match_canned_reply(text: str) -> str | None:
+    # Respuestas fijas por palabra clave (saludo, etc.) que no necesitan pasar
+    # por el LLM - ahorran tokens y responden al instante.
+    normalized = text.strip().lower()
+    for keyword, reply in CANNED_REPLIES.items():
+        if keyword.lower() in normalized:
+            return reply
+    return None
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic")
 LLM_TIMEOUT = 30.0
@@ -60,7 +79,7 @@ def verify_webhook(request: Request):
 
 
 @app.post("/webhook")
-async def receive_message(request: Request):
+async def receive_message(request: Request, background_tasks: BackgroundTasks):
     body = await request.json()
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
@@ -69,12 +88,18 @@ async def receive_message(request: Request):
                     continue
                 from_number = message["from"]
                 text = message["text"]["body"]
-                try:
-                    reply = run_agent(from_number, text)
-                    await send_whatsapp_message(from_number, reply)
-                except Exception:
-                    logger.exception("Fallo procesando mensaje de %s", from_number)
+                background_tasks.add_task(_process_message, from_number, text)
     return {"status": "ok"}
+
+
+async def _process_message(from_number: str, text: str) -> None:
+    # Corre despues de responder 200 a Meta de inmediato - si el LLM tarda,
+    # Meta ya no espera y no corta la conexion a medias (nginx 499).
+    try:
+        reply = run_agent(from_number, text)
+        await send_whatsapp_message(from_number, reply)
+    except Exception:
+        logger.exception("Fallo procesando mensaje de %s", from_number)
 
 
 def _load_business_config() -> dict:
@@ -239,6 +264,11 @@ def run_agent(phone_number: str, text: str) -> str:
 
     if memory.is_escalated(phone_number):
         return ESCALATED_REPLY
+
+    canned = _match_canned_reply(text)
+    if canned is not None:
+        memory.save_message(phone_number, "assistant", canned)
+        return canned
 
     messages = memory.get_history(phone_number, limit=20)
     call = _call_anthropic if LLM_PROVIDER == "anthropic" else _call_openai_compatible
