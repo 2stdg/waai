@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instala y despliega este bot en un servidor Ubuntu con nginx ya instalado.
 # Uso: sudo ./install.sh <dominio> <puerto_local> <ruta_del_proyecto>
-# Ejemplo: sudo ./install.sh talky.sstdg.com 8002 /opt/bots/talky
+# Ejemplo: sudo ./install.sh mibot.midominio.com 8002 /opt/bots/mibot
 set -euo pipefail
 
 DOMAIN="${1:?Uso: install.sh <dominio> <puerto_local> <ruta_del_proyecto>}"
