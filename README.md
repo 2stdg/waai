@@ -29,6 +29,14 @@ del rango gratuito y de menor riesgo de la API de WhatsApp (ver "Costos" abajo).
    **permanente** (no expira).
 6. Publica una Privacy Policy y Terms of Service reales (puedes usar las de otro proyecto como
    base) — Meta las pide en App settings → Basic.
+7. Copia el **App Secret** (App settings → Basic → botón "Show") y guárdalo como
+   `WHATSAPP_APP_SECRET` en tu `.env` — el bot lo usa para verificar que cada webhook viene
+   realmente de Meta (firma `X-Hub-Signature-256`). Sin esto el bot no arranca.
+
+**Si vas a tener mas de un bot/WABA bajo el mismo Business Portfolio** (varios proyectos de un
+mismo negocio, por ejemplo), considera verificar el negocio ante Meta desde el principio — sin
+verificacion, Meta limita cuantas WABAs puede crear un Business Portfolio, y te puedes topar con
+ese limite justo cuando estas registrando el segundo o tercer numero.
 
 ## Setup del proyecto
 
