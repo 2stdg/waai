@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -23,6 +25,7 @@ KNOWLEDGE_DIR = Path(os.environ.get("KNOWLEDGE_DIR", str(ROOT_DIR / "knowledge")
 WHATSAPP_TOKEN = os.environ["WHATSAPP_TOKEN"]
 PHONE_NUMBER_ID = os.environ["WHATSAPP_PHONE_NUMBER_ID"]
 VERIFY_TOKEN = os.environ["WHATSAPP_VERIFY_TOKEN"]
+APP_SECRET = os.environ["WHATSAPP_APP_SECRET"]
 GRAPH_URL = f"https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages"
 
 NOTIFY_NUMBER = os.environ["NOTIFY_NUMBER"]  # numero interno para avisos de escalado (no se comparte, no va al LLM)
@@ -70,17 +73,31 @@ else:
 app = FastAPI()
 
 
+def _verify_webhook_signature(payload: bytes, signature_header: str | None) -> bool:
+    # Meta firma cada POST con el App Secret (HMAC-SHA256) en este header; sin
+    # esto, cualquiera que adivine la URL puede simular ser Meta y enviar
+    # mensajes falsos.
+    if not signature_header or not signature_header.startswith("sha256="):
+        return False
+    expected = hmac.new(APP_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(signature_header.removeprefix("sha256="), expected)
+
+
 @app.get("/webhook")
 def verify_webhook(request: Request):
     params = request.query_params
-    if params.get("hub.verify_token") == VERIFY_TOKEN:
+    if hmac.compare_digest(params.get("hub.verify_token", ""), VERIFY_TOKEN):
         return PlainTextResponse(params.get("hub.challenge", ""))
     return PlainTextResponse("forbidden", status_code=403)
 
 
 @app.post("/webhook")
 async def receive_message(request: Request, background_tasks: BackgroundTasks):
-    body = await request.json()
+    raw_body = await request.body()
+    if not _verify_webhook_signature(raw_body, request.headers.get("x-hub-signature-256")):
+        logger.warning("Firma de webhook invalida o ausente")
+        return PlainTextResponse("forbidden", status_code=403)
+    body = json.loads(raw_body)
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
             for message in change.get("value", {}).get("messages", []):

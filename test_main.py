@@ -15,6 +15,7 @@ if memory.DB_PATH.exists():
 os.environ.setdefault("WHATSAPP_TOKEN", "x")
 os.environ.setdefault("WHATSAPP_PHONE_NUMBER_ID", "x")
 os.environ.setdefault("WHATSAPP_VERIFY_TOKEN", "secret")
+os.environ.setdefault("WHATSAPP_APP_SECRET", "x")
 os.environ.setdefault("NOTIFY_NUMBER", "5210000000000")
 os.environ.setdefault("ANTHROPIC_API_KEY", "x")
 os.environ.setdefault("LLM_PROVIDER", "anthropic")
